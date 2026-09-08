@@ -76,6 +76,14 @@ services:
       - video_cache:/tmp/videos
       - audio_cache:/tmp/audio
       - voice_profiles:/app/voice_profiles
+      # Model weights downloaded at runtime (not by setup_musetalk.sh):
+      # face_alignment's torch.hub detector weights (~180MB) and
+      # chatterbox-tts/faster-whisper's HuggingFace weights (~5GB+).
+      # Without these, every container recreation re-downloads them from
+      # the internet on first use — this is what makes the difference
+      # between "local-first" and actually durable/air-gapped-after-first-run.
+      - torch_cache:/root/.cache/torch
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,6 +166,14 @@ services:
       - video_cache:/tmp/videos
       - audio_cache:/tmp/audio
       - voice_profiles:/app/voice_profiles
+      # Model weights downloaded at runtime (not by setup_musetalk.sh):
+      # face_alignment's torch.hub detector weights (~180MB) and
+      # chatterbox-tts/faster-whisper's HuggingFace weights (~5GB+).
+      # Without these, every container recreation re-downloads them from
+      # the internet on first use — this is what makes the difference
+      # between "local-first" and actually durable/air-gapped-after-first-run.
+      - torch_cache:/root/.cache/torch
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       postgres:
         condition: service_healthy
@@ -251,6 +267,10 @@ volumes:
   audio_cache:
     driver: local
   voice_profiles:
+    driver: local
+  torch_cache:
+    driver: local
+  hf_cache:
     driver: local
 
 networks:

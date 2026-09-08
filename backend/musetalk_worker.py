@@ -20,9 +20,38 @@ All paths may be absolute or relative to cwd (the MuseTalk repo root).
 """
 import sys, os, json, copy, pickle, shutil, traceback
 from typing import Any, List
+
+# The parent process (animator.py) reads stdout expecting ONLY our JSON
+# protocol lines ("READY", then one JSON reply per job) — but vendored
+# MuseTalk code has bare print() calls (e.g. "load unet model from ...")
+# that default to stdout too. The first stray print gets mistaken for our
+# READY line and the parent kills us mid-load, thinking startup failed even
+# though loading was proceeding normally. Redirect the *real* stdout away
+# from sys.stdout so any print() (ours or vendored, present or future) goes
+# to stderr instead, and write our protocol messages directly to the saved
+# real handle.
+_real_stdout = sys.stdout
+sys.stdout = sys.stderr
 import cv2, numpy as np, torch
 from omegaconf import OmegaConf
 from transformers import WhisperModel
+
+# PyTorch >=2.6 flipped torch.load's default to weights_only=True, which
+# cannot read the legacy .tar-format checkpoints MuseTalk depends on
+# (resnet18-5c106cde.pth from download.pytorch.org, the gdown'd BiSeNet
+# 79999_iter.pth, face_alignment's torch.hub S3FD/2DFAN detector weights) —
+# it hard-errors instead of just warning. All of these come from the fixed,
+# trusted sources scripts/setup_musetalk.sh downloads, so restore the old
+# default here rather than patching every vendored call site individually.
+_torch_load = torch.load
+
+
+def _load_trusted(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _torch_load(*args, **kwargs)
+
+
+torch.load = _load_trusted
 
 from musetalk.utils.blending import get_image
 from musetalk.utils.face_parsing import FaceParsing
@@ -38,8 +67,8 @@ AUDIO_PAD_R = 2
 
 
 def _reply(obj: dict):
-    sys.stdout.write(json.dumps(obj) + "\n")
-    sys.stdout.flush()
+    _real_stdout.write(json.dumps(obj) + "\n")
+    _real_stdout.flush()
 
 
 def _run_job(job, vae, unet, pe, audio_processor, whisper, fp, timesteps, device):
@@ -172,8 +201,8 @@ def main():
     fp = FaceParsing()
     timesteps = torch.tensor([0], device=device)
 
-    sys.stdout.write("READY\n")
-    sys.stdout.flush()
+    _real_stdout.write("READY\n")
+    _real_stdout.flush()
 
     # ── job loop ──────────────────────────────────────────────────────────────
     for raw in sys.stdin:
