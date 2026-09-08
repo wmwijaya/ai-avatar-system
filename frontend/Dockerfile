@@ -1,4 +1,5 @@
-FROM node:18-alpine
+# Next.js 16 requires Node >=20.9.0 (node:18 fails "npm run build")
+FROM node:20-alpine
 
 WORKDIR /app
 

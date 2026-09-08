@@ -1,0 +1,5 @@
+# Force LF line endings for shell scripts regardless of platform checkout
+# settings (e.g. Windows core.autocrlf=true) — CRLF breaks the shebang line
+# ("/usr/bin/env: 'bash\r': No such file or directory") wherever these run
+# inside Linux containers.
+*.sh text eol=lf
